@@ -61,6 +61,7 @@ contract DeployV2 is Script, Parameters {
 
     KerosineManager kerosineManager = new KerosineManager();
 
+    // @audit : WETH vaults are incorrectly licensed to both the KeroseneManager and VaultLicenser, allowing users to register the same asset and their NFT ID in both Kerosene vaults and normal vaults
     kerosineManager.add(address(ethVault));
     kerosineManager.add(address(wstEth));
 
@@ -90,8 +91,11 @@ contract DeployV2 is Script, Parameters {
     unboundedKerosineVault.transferOwnership(MAINNET_OWNER);
     boundedKerosineVault.  transferOwnership(MAINNET_OWNER);
 
+    // @audit : WETH vaults are incorrectly licensed to both the KeroseneManager and VaultLicenser, allowing users to register the same asset and their NFT ID in both Kerosene vaults and normal vaults
     vaultLicenser.add(address(ethVault));
     vaultLicenser.add(address(wstEth));
+    // @ audit 
+    // a user can also register his ID and the keroseneVault as a normal vault because the script calls the licensing function for the kerosineVaults using the VaultLicenser rather than the kerosineManager. This can lead to positions entirely collateralized with kerosene token. Which is not what protocol intends to do and is very risky as the kerosene token is endogenous and has a manipulable asset price.
     vaultLicenser.add(address(unboundedKerosineVault));
     // vaultLicenser.add(address(boundedKerosineVault));
 
