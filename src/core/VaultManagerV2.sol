@@ -31,8 +31,8 @@ contract VaultManagerV2 is IVaultManager, Initializable {
 
   KerosineManager public keroseneManager;
 
-  mapping (uint => EnumerableSet.AddressSet) internal vaults; 
-  mapping (uint => EnumerableSet.AddressSet) internal vaultsKerosene; 
+  mapping (uint => EnumerableSet.AddressSet) internal vaults; // wtf 
+  mapping (uint => EnumerableSet.AddressSet) internal vaultsKerosene; // wtf is this
 
   mapping (uint => uint) public idToBlockOfLastDeposit;
 
@@ -40,7 +40,7 @@ contract VaultManagerV2 is IVaultManager, Initializable {
     if (dNft.ownerOf(id) != msg.sender)   revert NotOwner();    _;
   }
   modifier isValidDNft(uint id) {
-    if (dNft.ownerOf(id) == address(0))   revert InvalidDNft(); _;
+    if (dNft.ownerOf(id) == address(0))   revert InvalidDNft(); _; 
   }
   modifier isLicensed(address vault) {
     if (!vaultLicenser.isLicensed(vault)) revert NotLicensed(); _;
@@ -116,13 +116,14 @@ contract VaultManagerV2 is IVaultManager, Initializable {
   }
 
   /// @inheritdoc IVaultManager
+  // @audit -> Attacker can make 0 value deposit() calls to deny user from redeeming or withdrawing collateral
   function deposit(
     uint    id,
     address vault,
     uint    amount
   ) 
     external 
-      isValidDNft(id)
+      isValidDNft(id) // Use modifier isDNftOwner() instead of isValidDNft() on function deposit().
   {
     idToBlockOfLastDeposit[id] = block.number;
     Vault _vault = Vault(vault);
@@ -212,7 +213,7 @@ contract VaultManagerV2 is IVaultManager, Initializable {
     {
       uint cr = collatRatio(id);
       if (cr >= MIN_COLLATERIZATION_RATIO) revert CrTooHigh();
-      dyad.burn(id, msg.sender, dyad.mintedDyad(address(this), id));
+      dyad.burn(id, msg.sender, dyad.mintedDyad(address(this), id)); // @audit partial liquidation ?
 
       uint cappedCr               = cr < 1e18 ? 1e18 : cr;
       uint liquidationEquityShare = (cappedCr - 1e18).mulWadDown(LIQUIDATION_REWARD);
@@ -230,9 +231,7 @@ contract VaultManagerV2 is IVaultManager, Initializable {
   function collatRatio(
     uint id
   )
-    public 
-    view
-    returns (uint) {
+    public view returns (uint) {
       uint _dyad = dyad.mintedDyad(address(this), id);
       if (_dyad == 0) return type(uint).max;
       return getTotalUsdValue(id).divWadDown(_dyad);
@@ -241,9 +240,7 @@ contract VaultManagerV2 is IVaultManager, Initializable {
   function getTotalUsdValue(
     uint id
   ) 
-    public 
-    view
-    returns (uint) {
+    public view returns (uint) {
       return getNonKeroseneValue(id) + getKeroseneValue(id);
   }
 
